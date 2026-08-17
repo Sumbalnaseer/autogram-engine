@@ -1,0 +1,449 @@
+{
+  "name": "AutoGram Engine",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "triggerOn": "specificFolder",
+        "folderToWatch": {
+          "__rl": true,
+          "value": "1hwQW-d2R7vh965mSmLZC4VtZIe0Td7c2",
+          "mode": "id"
+        },
+        "event": "fileCreated",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDriveTrigger",
+      "typeVersion": 1,
+      "position": [
+        -720,
+        -32
+      ],
+      "id": "c85b521a-662f-4552-9d59-b0d75f1eb44b",
+      "name": "Google Drive Trigger",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "aBHpuOvkxG2OMEkp",
+          "name": "Google Drive account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "posted_images",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "file_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -576,
+        -32
+      ],
+      "id": "c8b037eb-0dc8-48f2-acf7-60e5ccbe64ff",
+      "name": "Get many rows",
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "TR6jtkHkVWCSMUCw",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "9b09c0b9-f7dd-4f2a-82a1-b900a8aab036",
+              "leftValue": "={{ $json.file_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "empty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -432,
+        -32
+      ],
+      "id": "bd6add3d-09aa-4148-99d4-1ab106174394",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ \"https://uajmbwdugznucxfyxzvv.supabase.co/storage/v1/object/instagram-images/\" + $binary.data.fileName }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_SUPABASE_SECRET_KEY_HERE"
+            },
+            {
+              "name": "Content-Type",
+              "value": "={{ $binary.data.mimeType }}"
+            },
+            {
+              "name": "apikey",
+              "value": "Bearer YOUR_SUPABASE_SECRET_KEY"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "binaryData",
+        "inputDataFieldName": "data",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -64,
+        -16
+      ],
+      "id": "6a1c136e-926e-4c8f-8698-00084e97e074",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "operation": "download",
+        "fileId": {
+          "__rl": true,
+          "value": "={{ $('Google Drive Trigger').item.json.id }}",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        -224,
+        -112
+      ],
+      "id": "dab4aedd-8622-4149-b663-21df717b9770",
+      "name": "Download file",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "aBHpuOvkxG2OMEkp",
+          "name": "Google Drive account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Generate a creative, engaging Instagram caption with relevant hashtags for an image with this filename: {{ $('Download file').item.binary.data.fileName }}\n\nReturn ONLY valid JSON in this exact format:\n{\n  \"caption\": \"your caption text here\",\n  \"hashtags\": \"#hashtag1 #hashtag2 #hashtag3\"\n}",
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        64,
+        -16
+      ],
+      "id": "f1467c56-7bb8-47e3-87c7-2969c65ef051",
+      "name": "Basic LLM Chain",
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "model": "llama-3.3-70b-versatile",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        176,
+        192
+      ],
+      "id": "0fbf9a67-89d8-4103-92d0-72942bd8ad5e",
+      "name": "Groq Chat Model",
+      "credentials": {
+        "groqApi": {
+          "id": "CEBky766Z0x6jjtx",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json.text;\nconst parsed = JSON.parse(raw);\n\nreturn [{\n  json: {\n    caption: parsed.caption,\n    hashtags: parsed.hashtags,\n    fileName: $('Download file').first().binary.data.fileName,\n    fileId: $('Google Drive Trigger').first().json.id,\n    storageKey: $('HTTP Request').first().json.Key,\n    imageUrl: \"https://uajmbwdugznucxfyxzvv.supabase.co/storage/v1/object/public/instagram-images/\" + $('Download file').first().binary.data.fileName\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        336,
+        -32
+      ],
+      "id": "68f8862a-583e-43af-a00f-d2c6d892c252",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.instagram.com/v21.0/37855244307452821/media",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "image_url",
+              "value": "={{ $json.imageUrl }}"
+            },
+            {
+              "name": "caption",
+              "value": "={{ $json.caption + \" \" + $json.hashtags }}"
+            },
+            {
+              "name": "access_token",
+              "value": "IGAGTz0sooBulBZAFpLSmRyTkd3TUpVQTJvWmVIQTFLWktxUmpOdTk3aFNCdW00X2hHejA1VDRVUFBQbHF2SDBZAcld1TU9SQl9YeWVQN1I3YmNhVWt6YnlGcVBVNTdlS2t6d3c4VWx2Y3ptMUZAmV3VKYzFIc3VuU0J0TUhnMzVGUQZDZD"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        464,
+        -32
+      ],
+      "id": "5746e36d-e677-462a-aa75-71e2a54684dc",
+      "name": "HTTP Request1",
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.instagram.com/v21.0/37855244307452821/media_publish",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "creation_id",
+              "value": "={{ $json.id }}"
+            },
+            {
+              "name": "access_token",
+              "value": "IGAGTz0sooBulBZAFpLSmRyTkd3TUpVQTJvWmVIQTFLWktxUmpOdTk3aFNCdW00X2hHejA1VDRVUFBQbHF2SDBZAcld1TU9SQl9YeWVQN1I3YmNhVWt6YnlGcVBVNTdlS2t6d3c4VWx2Y3ptMUZAmV3VKYzFIc3VuU0J0TUhnMzVGUQZDZD"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        608,
+        -32
+      ],
+      "id": "d44e1e44-2fbe-41fd-b424-d904f75f318d",
+      "name": "HTTP Request2",
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "tableId": "posted_images",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "file_id",
+              "fieldValue": "={{ $('Google Drive Trigger').item.json.id }}"
+            },
+            {
+              "fieldId": "file_name",
+              "fieldValue": "={{ $('Download file').item.binary.data.fileName }}"
+            },
+            {
+              "fieldId": "image_url",
+              "fieldValue": "={{ $('Code in JavaScript').item.json.imageUrl }}"
+            },
+            {
+              "fieldId": "caption",
+              "fieldValue": "={{ $('Code in JavaScript').item.json.caption }}"
+            },
+            {
+              "fieldId": "posted",
+              "fieldValue": "true"
+            },
+            {
+              "fieldId": "instagram_post_id",
+              "fieldValue": "={{ $json.id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        736,
+        -32
+      ],
+      "id": "6b34a152-8420-4ad6-8aff-d59f3c506a0b",
+      "name": "Create a row",
+      "retryOnFail": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "TR6jtkHkVWCSMUCw",
+          "name": "Supabase account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Google Drive Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get many rows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get many rows": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Download file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download file": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request1": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request2": {
+      "main": [
+        [
+          {
+            "node": "Create a row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "ed9f89e3-599b-4b91-b87d-250b81b32701",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "862e2bd24c2b71d83bf74e1a3b609f65783e4495fd54b184452613f3fca3082c"
+  },
+  "nodeGroups": [],
+  "id": "wmmXKrKDXOagp5gC",
+  "tags": []
+}
